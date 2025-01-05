@@ -1,0 +1,4 @@
+name: CloverChat
+version: '1.0'
+main: com.fread.cloverChat.chat
+api-version: '1.20'
