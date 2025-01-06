@@ -11,6 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.Bukkit;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,69 +43,74 @@ public class CommandPrivateMessage implements CommandExecutor {
         }
         Player player = (Player) sender;
 
-        // Проверка аргументов
+        // 1) Проверяем, достаточно ли аргументов (например, /m <ник> <сообщение>)
         if (args.length < 2) {
-            player.sendMessage("Использование: /m <ник_игрока> <сообщение>");
+            // Читаем список строк из конфига
+            List<String> usageMsgList = plugin.getConfiguration().getStringList("private-chat.usage-message");
+            // Если в конфиге пусто, подставим дефолт
+            if (usageMsgList.isEmpty()) {
+                usageMsgList = Arrays.asList("&eИспользование: /m <ник_игрока> <сообщение>");
+            }
+            // Выводим каждую строку с поддержкой цвета
+            for (String line : usageMsgList) {
+                player.sendMessage(applyColor(line));
+            }
             return true;
         }
 
-        // --- Начало проверки кулдауна ---
+        // 2) Проверка кулдауна
         long cooldownSeconds = plugin.getConfiguration().getLong("private-chat.cooldown-seconds", 5);
         long cooldownMillis = cooldownSeconds * 1000L;
-
         long now = System.currentTimeMillis();
+
         if (lastPmTime.containsKey(player.getUniqueId())) {
             long lastTime = lastPmTime.get(player.getUniqueId());
             long diff = now - lastTime;
-
             if (diff < cooldownMillis) {
-                // Кулдаун ещё не вышел
-                long remain = (cooldownMillis - diff) / 1000; // оставшиеся секунды
+                long remain = (cooldownMillis - diff) / 1000;
 
-                // Выводим сообщение из "cooldown-message" (список строк)
+                // Читаем список строк из конфига (cooldown-message)
                 List<String> cooldownMsg = plugin.getConfiguration().getStringList("private-chat.cooldown-message");
                 if (!cooldownMsg.isEmpty()) {
                     for (String line : cooldownMsg) {
-                        // Подставляем %remain%
                         line = line.replace("%remain%", String.valueOf(remain));
-
-                        // Обрабатываем цвета
-                        if (plugin.getConfiguration().getBoolean("hex-colors", true)) {
-                            line = Utils.applyHexColors(line);
-                        } else {
-                            line = org.bukkit.ChatColor.translateAlternateColorCodes('&', line);
-                        }
-
-                        // Отправляем строку
+                        line = applyColor(line);
                         player.sendMessage(line);
                     }
                 } else {
-                    // Если список пуст, отправим дефолт
                     player.sendMessage("Подождите ещё " + remain + " секунд перед отправкой следующего ЛС.");
                 }
-                return true; // Прерываем команду
+                return true;
             }
         }
         // Обновляем время последней отправки
         lastPmTime.put(player.getUniqueId(), now);
-        // --- Конец проверки кулдауна ---
 
-        // Находим получателя
+        // 3) Проверяем, есть ли получатель онлайн
         String targetName = args[0];
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null || !target.isOnline()) {
-            player.sendMessage("Игрок " + targetName + " не в сети.");
+            // Читаем список строк из конфига (offline-player-message)
+            List<String> offlineMsgList = plugin.getConfiguration().getStringList("private-chat.offline-player-message");
+            if (offlineMsgList.isEmpty()) {
+                offlineMsgList = Arrays.asList("&cИгрок %target_name% не в сети.");
+            }
+            for (String line : offlineMsgList) {
+                line = line.replace("%target_name%", targetName);
+                line = applyColor(line);
+                player.sendMessage(line);
+            }
             return true;
         }
 
-        // Собираем текст сообщения
+        // 4) Собираем текст сообщения
         StringBuilder sb = new StringBuilder();
         for (int i = 1; i < args.length; i++) {
             sb.append(args[i]).append(" ");
         }
         String message = sb.toString().trim();
 
-        // Форматы
+        // 5) Форматы (отправитель/получатель)
         String formatSender = plugin.getConfiguration().getString(
                 "private-chat.format-sender",
                 "&#55FFFF[-> %target_name%] %message%"
@@ -114,6 +120,7 @@ public class CommandPrivateMessage implements CommandExecutor {
                 "&#55FFFF[%player_name% -> You] %message%"
         );
 
+        // Подставляем служебные плейсхолдеры
         formatSender = formatSender.replace("%target_name%", target.getName())
                 .replace("%player_name%", player.getName())
                 .replace("%message%", message);
@@ -127,7 +134,7 @@ public class CommandPrivateMessage implements CommandExecutor {
             formatReceiver = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(target, formatReceiver);
         }
 
-        // Переводим цвета
+        // Обработка цветов
         boolean useHex = plugin.getConfiguration().getBoolean("hex-colors", true);
         if (useHex) {
             formatSender = Utils.applyHexColors(formatSender);
@@ -137,25 +144,37 @@ public class CommandPrivateMessage implements CommandExecutor {
             formatReceiver = org.bukkit.ChatColor.translateAlternateColorCodes('&', formatReceiver);
         }
 
-        // Adventure-компоненты
+        // 6) Отправка сообщений через Adventure
         Component senderComp = LegacyComponentSerializer.legacySection().deserialize(formatSender);
         Component receiverComp = LegacyComponentSerializer.legacySection().deserialize(formatReceiver);
 
-        // Отправляем
         player.sendMessage(senderComp);
         target.sendMessage(receiverComp);
 
-        // --- Добавляем звук уведомления получателю ---
-        String soundKey = plugin.getConfiguration().getString("private-chat.notification-sound", "minecraft:block.note_block.pling");
+        // 7) Звук уведомления получателю
+        String soundKey = plugin.getConfiguration().getString(
+                "private-chat.notification-sound",
+                "minecraft:block.note_block.pling"
+        );
         target.playSound(
                 Sound.sound(
                         Key.key(soundKey),
-                        Sound.Source.PLAYER, // Или MASTER, AMBIENT, etc.
-                        1.0f,   // громкость
-                        1.0f    // питч
+                        Sound.Source.PLAYER,
+                        1.0f,
+                        1.0f
                 )
         );
 
         return true;
+    }
+
+    /**
+     * Преобразует &-коды или &#RRGGBB в цвет Minecraft.
+     */
+    private String applyColor(String text) {
+        if (plugin.getConfiguration().getBoolean("hex-colors", true)) {
+            return Utils.applyHexColors(text);
+        }
+        return org.bukkit.ChatColor.translateAlternateColorCodes('&', text);
     }
 }

@@ -13,6 +13,12 @@ commands:
     permission: cloverchat.pm
     permission-message: "&cУ вас нет прав на использование этой команды!"
 
+  cloverchatreload:
+    description: Перезагрузить CloverChat (конфиг и т.д.)
+    usage: /cloverchatreload
+    permission: cloverchat.command.reload
+    permission-message: "&cУ вас нет прав на использование /cloverchatreload!"
+
 permissions:
   cloverchat.chat.use:
     description: "Позволяет игроку писать в чат"
@@ -23,3 +29,6 @@ permissions:
   cloverchat.pm:
     description: "Позволяет использовать личные сообщения /m"
     default: true
+  cloverchat.command.reload:
+    description: "Позволяет перезагружать плагин CloverChat"
+    default: op

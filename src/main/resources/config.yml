@@ -21,6 +21,17 @@ private-chat:
   format-sender: "&#55FFFF[-> %target_name%] %message%"
   format-receiver: "&#55FFFF[%player_name% -> You] %message%"
 
+  usage-message:
+    - "&7--------------------------------"
+    - "&eИспользование: &f/m <ник_игрока> <сообщение>"
+    - "&7--------------------------------"
+
+  offline-player-message:
+    - "&7--------------------------------"
+    - "&cИгрок &f%target_name% &cне в сети!"
+    - "&7Проверьте правильность ника."
+    - "&7--------------------------------"
+
 hex-colors: true
 
 # Список строк, который будет показан при наведении на ник (hover).
@@ -45,6 +56,9 @@ hover-text:
 # Системные сообщения (пример)
 system-messages:
   player-not-found: "&cИгрок &f@%mention% &cне найден или офлайн!"
+  reload-success:
+    - "&aКонфиг CloverChat успешно перезагружен!"
+    - "&7Вы можете продолжить настройку."
 
 # Новые блоки:
 commands-cooldown:

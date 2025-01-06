@@ -29,7 +29,16 @@ public class CloverChat extends JavaPlugin {
             getCommand("m").setExecutor(new CommandPrivateMessage(this));
         }
 
+        if (getCommand("cloverchatreload") != null) {
+            getCommand("cloverchatreload").setExecutor(new CommandReloadCloverChat(this));
+        }
+
         getLogger().info("[CloverChat] Плагин включён!");
+    }
+
+    // Этот метод нужен, если где-то в коде вы вручную хотите заменять config
+    public void setConfig(FileConfiguration newConfig) {
+        this.config = newConfig;
     }
 
     // Вот тот самый метод, который вы потом будете вызывать
