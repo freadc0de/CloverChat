@@ -1,0 +1,32 @@
+# Формат чата. Можно использовать:
+# - %player_name% как имя игрока (пример PlaceholderAPI: %player_name% или любой другой плейсхолдер)
+# - %message% для самого сообщения
+# - Любые плейсхолдеры PlaceholderAPI
+
+# Раздел локального чата
+local-chat:
+  enabled: true            # Включён ли локальный чат
+  radius: 70               # Радиус (в блоках), в пределах которого видны сообщения
+  format: "&#ffffff[LOCAL] %player_name%: %message%"
+
+# Раздел глобального чата
+global-chat:
+  enabled: true
+  prefix: "!"              # Префикс, с которого начинается сообщение в глобальном чате
+  format: "&#ffaa00[GLOBAL] %player_name%: %message%"
+
+# Личные сообщения
+private-chat:
+  enabled: true
+  format-sender: "&#55FFFF[-> %target_name%] %message%"
+  format-receiver: "&#55FFFF[%player_name% -> You] %message%"
+
+hex-colors: true
+
+# Список строк, который будет показан при наведении на ник (hover).
+# Можем использовать PlaceholderAPI-плейсхолдеры вроде %player_level%.
+# Строки соединятся переводом строки (\n).
+hover-text:
+  - "&eИгрок: &f%player_name%"
+  - "&7Нажмите, чтобы написать &f/m %player_name%"
+  - "&7Локальные координаты: &f%player_x% %player_y% %player_z%"

@@ -1,4 +1,14 @@
 name: CloverChat
-version: '1.0'
-main: com.fread.cloverChat.chat
-api-version: '1.20'
+version: 1.0
+main: com.fread.CloverChat.CloverChat
+api-version: 1.16
+author: fread
+depend: [PlaceholderAPI, ProtocolLib]
+description: Настраиваемый чат
+
+commands:
+  m:
+    description: Отправить личное сообщение
+    usage: /m <ник_игрока> <сообщение>
+    permission: cloverchat.pm
+    permission-message: "&cУ вас нет прав на использование этой команды!"
