@@ -45,3 +45,15 @@ hover-text:
 # Системные сообщения (пример)
 system-messages:
   player-not-found: "&cИгрок &f@%mention% &cне найден или офлайн!"
+
+# Новые блоки:
+commands-cooldown:
+  enabled: true
+  seconds: 5
+  message:
+    - "&cВы слишком быстро вводите команды!"
+    - "&7Подождите &f%remain% &7секунд прежде, чем использовать другую команду."
+
+no-chat-permission-message:
+  - "&cУ вас нет прав, чтобы писать в чат!"
+  - "&7Обратитесь к администратору."

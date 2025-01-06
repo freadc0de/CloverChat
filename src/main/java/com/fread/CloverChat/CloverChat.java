@@ -1,44 +1,38 @@
 package com.fread.CloverChat;
 
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.configuration.file.FileConfiguration;
 
 public class CloverChat extends JavaPlugin {
 
+    // Локальная переменная для хранения конфига
     private FileConfiguration config;
+
+    // Флаг для PlaceholderAPI
     private boolean placeholderAPIHooked = false;
 
     @Override
     public void onEnable() {
-        // Создаём или подгружаем config.yml
         saveDefaultConfig();
         config = getConfig();
 
-        // Проверка PlaceholderAPI
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             placeholderAPIHooked = true;
-            getLogger().info("[CloverChat] PlaceholderAPI найден! Хук успешен.");
-        } else {
-            getLogger().warning("[CloverChat] PlaceholderAPI не найден. Плейсхолдеры работать не будут (если вы их используете).");
+            getLogger().info("[CloverChat] PlaceholderAPI найден!");
         }
 
-        // Регистрируем слушатель чата (локальный/глобальный)
+        // ВАЖНО
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+        getServer().getPluginManager().registerEvents(new CommandCooldownListener(this), this);
 
-        // Регистрируем команду /m (личные сообщения)
         if (getCommand("m") != null) {
             getCommand("m").setExecutor(new CommandPrivateMessage(this));
         }
 
-        getLogger().info("[CloverChat] Плагин успешно включён!");
+        getLogger().info("[CloverChat] Плагин включён!");
     }
 
-    @Override
-    public void onDisable() {
-        getLogger().info("[CloverChat] Плагин выключен!");
-    }
-
+    // Вот тот самый метод, который вы потом будете вызывать
     public FileConfiguration getConfiguration() {
         return config;
     }

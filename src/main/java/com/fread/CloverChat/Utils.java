@@ -17,7 +17,7 @@ public class Utils {
             String group = matcher.group(1);
             StringBuilder replacement = new StringBuilder("§x");
             for (char c : group.toCharArray()) {
-                replacement.append("§").append(c);
+                replacement.append('§').append(c);
             }
             matcher.appendReplacement(buffer, replacement.toString());
         }

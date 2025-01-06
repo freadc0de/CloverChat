@@ -9,6 +9,17 @@ description: Настраиваемый чат
 commands:
   m:
     description: Отправить личное сообщение
-    usage: /m <ник_игрока> <сообщение>
+    usage: /m <ник> <сообщение>
     permission: cloverchat.pm
     permission-message: "&cУ вас нет прав на использование этой команды!"
+
+permissions:
+  cloverchat.chat.use:
+    description: "Позволяет игроку писать в чат"
+    default: true  # По умолчанию доступно всем
+  cloverchat.commandcooldown.bypass:
+    description: "Позволяет обходить общий кулдаун на ввод команд"
+    default: op    # По умолчанию только операторам
+  cloverchat.pm:
+    description: "Позволяет использовать личные сообщения /m"
+    default: true
