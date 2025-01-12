@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 
@@ -15,13 +16,16 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ChatListener implements Listener {
 
     private final CloverChat plugin;
-    private static final Pattern MENTION_PATTERN = Pattern.compile("@([A-Za-z0-9_]{3,16})");
+
+    // Регулярка для ссылок (http/https) — можно менять по желанию
+    private static final Pattern LINK_PATTERN = Pattern.compile("(https?://[^\\s]+)", Pattern.CASE_INSENSITIVE);
 
     public ChatListener(CloverChat plugin) {
         this.plugin = plugin;
@@ -31,11 +35,10 @@ public class ChatListener implements Listener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player sender = event.getPlayer();
 
-        // 1. Проверяем право на чат: cloverchat.chat.use
+        // Проверяем право на чат
         if (!sender.hasPermission("cloverchat.chat.use")) {
             event.setCancelled(true);
 
-            // Выводим сообщение об ошибке из no-chat-permission-message
             List<String> noPermMsg = plugin.getConfiguration().getStringList("no-chat-permission-message");
             if (noPermMsg.isEmpty()) {
                 sender.sendMessage("У вас нет прав писать в чат!");
@@ -48,7 +51,7 @@ public class ChatListener implements Listener {
             return;
         }
 
-        // 2. Локальный/глобальный чат (как раньше)
+        // Основная логика локального/глобального чата
         String originalMessage = event.getMessage();
         event.setCancelled(true);
 
@@ -56,8 +59,8 @@ public class ChatListener implements Listener {
         String globalPrefix = plugin.getConfiguration().getString("global-chat.prefix", "!");
         boolean isGlobal = globalEnabled && originalMessage.startsWith(globalPrefix);
 
-        String format;
         String chatMessage;
+        String format;
 
         if (isGlobal) {
             // Глобальный
@@ -78,47 +81,26 @@ public class ChatListener implements Listener {
         format = format.replace("%player_name%", sender.getName())
                 .replace("%message%", chatMessage);
 
+        // PlaceholderAPI, если включен
         if (plugin.isPlaceholderAPIHooked()) {
             format = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(sender, format);
         }
 
-        // Обрабатываем упоминания
+        // Обработка упоминаний (@PlayerName)
         String coloredFormat = applyColor(format);
-        Matcher matcher = MENTION_PATTERN.matcher(coloredFormat);
+        coloredFormat = processMentions(coloredFormat, sender);
 
-        List<Player> mentionedOnlinePlayers = new java.util.ArrayList<>();
-        String mentionFormat = plugin.getConfiguration().getString("mention.highlight-format", "&#ff5e0d&l@%mention%&r");
-        String mentionSoundKey = plugin.getConfiguration().getString("mention.sound", "minecraft:block.note_block.pling");
-
-        StringBuffer sb = new StringBuffer();
-        while (matcher.find()) {
-            String mentionName = matcher.group(1);
-            Player mentioned = Bukkit.getPlayerExact(mentionName);
-            if (mentioned != null && mentioned.isOnline()) {
-                // Заменяем на подсвеченный вариант
-                String highlight = mentionFormat.replace("%mention%", mentionName);
-                highlight = applyColor(highlight);
-                matcher.appendReplacement(sb, highlight);
-                mentionedOnlinePlayers.add(mentioned);
-            } else {
-                // Оставляем как есть
-                matcher.appendReplacement(sb, matcher.group(0));
-            }
-        }
-        matcher.appendTail(sb);
-        coloredFormat = sb.toString();
-
-        // Собираем Adventure-компонент, добавляем hover/click на ник
-        Component finalMessage = buildChatComponentWithSenderHover(sender, coloredFormat);
+        // Финальная сборка Adventure-компонента с учётом ссылок
+        Component finalMessage = buildLinkAwareComponent(coloredFormat);
 
         // Рассылаем
         if (isGlobal) {
-            // Глобал — всем
+            // Всем
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.sendMessage(finalMessage);
             }
         } else {
-            // Локал — в радиусе
+            // Локальный радиус
             double radius = plugin.getConfiguration().getDouble("local-chat.radius", 70.0);
             Location loc = sender.getLocation();
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -127,50 +109,111 @@ public class ChatListener implements Listener {
                 }
             }
         }
+    }
 
-        // Проигрываем звук упомянутым
+    /**
+     * Обрабатываем упоминания: если в тексте найдётся @PlayerName (3..16 символов),
+     * то подсвечиваем их и проигрываем звук упомянутым игрокам.
+     */
+    private String processMentions(String text, Player sender) {
+        List<Player> mentionedOnlinePlayers = new ArrayList<>();
+
+        String mentionFormat = plugin.getConfiguration()
+                .getString("mention.highlight-format", "&#ff5e0d&l@%mention%&r");
+        String mentionSoundKey = plugin.getConfiguration()
+                .getString("mention.sound", "minecraft:block.note_block.pling");
+
+        Pattern mentionPattern = Pattern.compile("@([A-Za-z0-9_]{3,16})");
+        Matcher matcher = mentionPattern.matcher(text);
+
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            String mentionName = matcher.group(1);
+            Player mentioned = Bukkit.getPlayerExact(mentionName);
+            if (mentioned != null && mentioned.isOnline()) {
+                String highlight = mentionFormat.replace("%mention%", mentionName);
+                highlight = applyColor(highlight);
+                matcher.appendReplacement(sb, highlight);
+
+                mentionedOnlinePlayers.add(mentioned);
+            } else {
+                matcher.appendReplacement(sb, matcher.group(0));
+            }
+        }
+        matcher.appendTail(sb);
+
+        String result = sb.toString();
+
+        // Проиграем звук всем упомянутым
         if (!mentionedOnlinePlayers.isEmpty()) {
-            Sound pingSound = Sound.sound(
-                    Key.key(mentionSoundKey),
-                    Sound.Source.PLAYER,
-                    1.0f,
-                    1.0f
-            );
+            Sound pingSound = Sound.sound(Key.key(mentionSoundKey), Sound.Source.PLAYER, 1.0f, 1.0f);
             for (Player mentioned : mentionedOnlinePlayers) {
                 mentioned.playSound(pingSound);
             }
         }
+        return result;
     }
 
-    private Component buildChatComponentWithSenderHover(Player sender, String coloredFormat) {
-        String senderName = sender.getName();
-        int idx = coloredFormat.indexOf(senderName);
-        if (idx == -1) {
+    /**
+     * Собирает компонент, где ссылки (http/https) кликабельны и имеют hover.
+     */
+    private Component buildLinkAwareComponent(String coloredFormat) {
+        // Проверяем, включена ли обработка ссылок
+        boolean linksEnabled = plugin.getConfiguration().getBoolean("links.enabled", true);
+        if (!linksEnabled) {
+            // Если не включена, просто десериализуем всё
             return LegacyComponentSerializer.legacySection().deserialize(coloredFormat);
         }
 
-        String left = coloredFormat.substring(0, idx);
-        String namePart = coloredFormat.substring(idx, idx + senderName.length());
-        String right = coloredFormat.substring(idx + senderName.length());
+        // Считываем формат ссылки и hover-текст
+        String linkFormat = plugin.getConfiguration().getString("links.format", "&#ff5e0d&l%link%");
+        String hoverText = plugin.getConfiguration().getString("links.hover-text", "&c(ссылка на сайт) &f- Сайт");
 
-        // hover-text
-        List<String> hoverLines = plugin.getConfiguration().getStringList("hover-text");
-        String joinedHover = String.join("\n", hoverLines);
+        Component result = Component.empty();
+        Matcher matcher = LINK_PATTERN.matcher(coloredFormat);
 
-        if (plugin.isPlaceholderAPIHooked()) {
-            joinedHover = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(sender, joinedHover);
+        int lastEnd = 0;
+        while (matcher.find()) {
+            String beforeLink = coloredFormat.substring(lastEnd, matcher.start());
+            String url = matcher.group(1);
+
+            // Добавляем кусок до ссылки
+            if (!beforeLink.isEmpty()) {
+                result = result.append(deserializeColored(beforeLink));
+            }
+
+            // Подставим URL
+            String linkText = linkFormat.replace("%link%", url);
+
+            // Создаём компонент для ссылки
+            Component linkComp = deserializeColored(linkText)
+                    .hoverEvent(HoverEvent.showText(deserializeColored(hoverText)))
+                    .clickEvent(ClickEvent.openUrl(url));
+
+            result = result.append(linkComp);
+
+            lastEnd = matcher.end();
         }
-        joinedHover = applyColor(joinedHover);
 
-        Component hoverComponent = LegacyComponentSerializer.legacySection().deserialize(joinedHover);
-        Component nameComponent = LegacyComponentSerializer.legacySection().deserialize(namePart)
-                .hoverEvent(HoverEvent.showText(hoverComponent))
-                .clickEvent(ClickEvent.suggestCommand("/m " + senderName + " "));
+        // Хвост
+        if (lastEnd < coloredFormat.length()) {
+            String tail = coloredFormat.substring(lastEnd);
+            result = result.append(deserializeColored(tail));
+        }
 
-        Component leftComp = LegacyComponentSerializer.legacySection().deserialize(left);
-        Component rightComp = LegacyComponentSerializer.legacySection().deserialize(right);
+        return result;
+    }
 
-        return Component.empty().append(leftComp).append(nameComponent).append(rightComp);
+    /**
+     * Простой метод для обработки цвета (& или &#RRGGBB) и десериализации в Component.
+     */
+    private Component deserializeColored(String text) {
+        if (plugin.getConfiguration().getBoolean("hex-colors", true)) {
+            text = Utils.applyHexColors(text);
+        } else {
+            text = org.bukkit.ChatColor.translateAlternateColorCodes('&', text);
+        }
+        return LegacyComponentSerializer.legacySection().deserialize(text);
     }
 
     private String applyColor(String text) {

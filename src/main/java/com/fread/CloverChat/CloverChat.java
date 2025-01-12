@@ -5,30 +5,31 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 public class CloverChat extends JavaPlugin {
 
-    // Локальная переменная для хранения конфига
     private FileConfiguration config;
-
-    // Флаг для PlaceholderAPI
     private boolean placeholderAPIHooked = false;
 
     @Override
     public void onEnable() {
+        // Создаём или загружаем config.yml
         saveDefaultConfig();
         config = getConfig();
 
+        // Проверяем PlaceholderAPI
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             placeholderAPIHooked = true;
             getLogger().info("[CloverChat] PlaceholderAPI найден!");
         }
 
-        // ВАЖНО
+        // Регистрируем слушатели
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new CommandCooldownListener(this), this);
 
+        // Регистрируем команду /m (личные сообщения)
         if (getCommand("m") != null) {
             getCommand("m").setExecutor(new CommandPrivateMessage(this));
         }
 
+        // Регистрируем команду /cloverchatreload
         if (getCommand("cloverchatreload") != null) {
             getCommand("cloverchatreload").setExecutor(new CommandReloadCloverChat(this));
         }
@@ -36,14 +37,19 @@ public class CloverChat extends JavaPlugin {
         getLogger().info("[CloverChat] Плагин включён!");
     }
 
-    // Этот метод нужен, если где-то в коде вы вручную хотите заменять config
-    public void setConfig(FileConfiguration newConfig) {
-        this.config = newConfig;
+    @Override
+    public void onDisable() {
+        getLogger().info("[CloverChat] Плагин выключен!");
     }
 
-    // Вот тот самый метод, который вы потом будете вызывать
+    // Этот метод используем, чтобы получать конфиг в других классах
     public FileConfiguration getConfiguration() {
         return config;
+    }
+
+    // Если нужно обновлять config после reloadConfig()
+    public void setConfig(FileConfiguration newConfig) {
+        this.config = newConfig;
     }
 
     public boolean isPlaceholderAPIHooked() {
