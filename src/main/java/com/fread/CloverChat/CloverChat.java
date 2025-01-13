@@ -31,6 +31,10 @@ public class CloverChat extends JavaPlugin {
             getCommand("cloverchatreload").setExecutor(new CommandReloadCloverChat(this));
         }
 
+        if (getCommand("m") != null) {
+            getCommand("m").setExecutor(new CommandPrivateMessage(this));
+        }
+
         getLogger().info("[CloverChat] Плагин включён!");
     }
 
