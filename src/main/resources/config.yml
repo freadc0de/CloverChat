@@ -71,3 +71,19 @@ commands-cooldown:
 no-chat-permission-message:
   - "&cУ вас нет прав, чтобы писать в чат!"
   - "&7Обратитесь к администратору."
+
+links:
+  enabled: true
+  format: "*ссылка*"
+  hover-lines:
+    - "&7URL: &f%url%"
+    - "&eВторая строка"
+    - "&cМожно добавлять &bнесколько &eстрок"
+
+join-message:
+  enabled: true
+  text: "&#55FF55[+] %player_name% зашёл на сервер!"
+
+leave-message:
+  enabled: true
+  text: "&#FF5555[-] %player_name% вышел с сервера!"
