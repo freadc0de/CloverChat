@@ -17,15 +17,19 @@ public class CloverChat extends JavaPlugin {
         saveDefaultConfig();
         config = getConfig();
 
-        // Проверяем PlaceholderAPI
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             placeholderAPIHooked = true;
             getLogger().info("[CloverChat] PlaceholderAPI найден!");
         }
 
-        // Регистрируем наши слушатели
+        // Регистрируем слушатели и команды
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new JoinQuitListener(this), this);
+
+        // Если в plugin.yml есть "cloverchatreload" команда:
+        if (getCommand("cloverchatreload") != null) {
+            getCommand("cloverchatreload").setExecutor(new CommandReloadCloverChat(this));
+        }
 
         getLogger().info("[CloverChat] Плагин включён!");
     }
@@ -35,35 +39,29 @@ public class CloverChat extends JavaPlugin {
         getLogger().info("[CloverChat] Плагин выключен!");
     }
 
-    // Если нужно публично получить конфиг
+    // Если хотим публично вернуть config
     public FileConfiguration getConfiguration() {
         return config;
     }
 
-    // Проверка, есть ли PlaceholderAPI
+    // Если нужно «принудительно» перезаписать config (для reload команды):
+    public void setConfig(FileConfiguration newConfig) {
+        this.config = newConfig;
+    }
+
     public boolean isPlaceholderAPIHooked() {
         return placeholderAPIHooked;
     }
 
-    /**
-     * Пример публичного метода, который обрабатывает &-цветы и &#RRGGBB (hex),
-     * если в конфиге hex-colors: true.
-     */
+    // Методы для цвета/десериализации:
     public String applyColor(String text) {
-        if (this.getConfiguration().getBoolean("hex-colors", true)) {
-            text = Utils.applyHexColors(text); // Допустим, Utils.applyHexColors(...) у вас уже есть
+        if (getConfiguration().getBoolean("hex-colors", true)) {
+            text = Utils.applyHexColors(text);
         }
         return ChatColor.translateAlternateColorCodes('&', text);
     }
 
-    /**
-     * Превращаем уже «окрашенную» строку (с §-кодами) в Adventure-компонент.
-     * Здесь используем LegacyComponentSerializer.legacySection().
-     */
     public Component deserializeColored(String text) {
-        // Можно ещё раз вызвать applyColor, если нужно,
-        // но обычно мы делаем это заранее.
-        // text = applyColor(text);
         return LegacyComponentSerializer.legacySection().deserialize(text);
     }
 }

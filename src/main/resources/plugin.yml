@@ -1,5 +1,5 @@
 name: CloverChat
-version: 1.0
+version: 1.5
 main: com.fread.CloverChat.CloverChat
 api-version: 1.16
 author: fread
