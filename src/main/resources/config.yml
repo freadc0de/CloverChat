@@ -87,3 +87,11 @@ join-message:
 leave-message:
   enabled: true
   text: "&#FF5555[-] %player_name% вышел с сервера!"
+
+censor:
+  enabled: true
+  words:
+    - "херня"
+    - "хрен"
+    - "дурак"
+    - "дура"

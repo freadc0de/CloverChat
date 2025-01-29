@@ -25,6 +25,7 @@ public class CloverChat extends JavaPlugin {
         // Регистрируем слушатели и команды
         getServer().getPluginManager().registerEvents(new ChatListener(this), this);
         getServer().getPluginManager().registerEvents(new JoinQuitListener(this), this);
+        getServer().getPluginManager().registerEvents(new CommandCooldownListener(this), this);
 
         // Если в plugin.yml есть "cloverchatreload" команда:
         if (getCommand("cloverchatreload") != null) {

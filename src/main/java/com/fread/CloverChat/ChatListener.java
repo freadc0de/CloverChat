@@ -26,7 +26,6 @@ public class ChatListener implements Listener {
 
     // Регулярка для http/https ссылок
     private static final Pattern LINK_PATTERN = Pattern.compile("(https?://\\S+)", Pattern.CASE_INSENSITIVE);
-    // Если хотите взять всё, кроме пробелов, \S эквивалентно [^\s]
 
     public ChatListener(CloverChat plugin) {
         this.plugin = plugin;
@@ -88,10 +87,13 @@ public class ChatListener implements Listener {
         String finalString = applyColor(format);
         finalString = processMentions(finalString, sender);
 
-        // 6) Собираем финальный Component (ссылки + hover на ник)
+        // 6) Пропускаем сообщение через мат-фильтр (censor)
+        finalString = censorMessage(finalString);
+
+        // 7) Собираем финальный Component (ссылки + hover на ник)
         Component finalMessage = buildFinalComponent(finalString, sender);
 
-        // 7) Рассылаем
+        // 8) Рассылаем
         if (isGlobal) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.sendMessage(finalMessage);
@@ -180,8 +182,7 @@ public class ChatListener implements Listener {
         String linkFormat = plugin.getConfiguration().getString("links.format", "*ссылка*");
         List<String> hoverLines = plugin.getConfiguration().getStringList("links.hover-lines");
         if (hoverLines.isEmpty()) {
-            // Можно Collections.singletonList(), но asList() тоже нормально
-            hoverLines = java.util.Collections.singletonList("&7%url% &f- Сайт");
+            hoverLines = Collections.singletonList("&7%url% &f- Сайт");
         }
 
         Component result = Component.empty();
@@ -198,7 +199,6 @@ public class ChatListener implements Listener {
             }
 
             // Видимый текст вместо ссылки (например "&#ffcb1b&l*ссылка*")
-            // !!! Прогоняем через applyColor + deserializeColored, чтобы цвет сработал
             String linkTextColored = applyColor(linkFormat);
             Component linkComp = LegacyComponentSerializer.legacySection().deserialize(linkTextColored);
 
@@ -269,11 +269,66 @@ public class ChatListener implements Listener {
         return sb.toString();
     }
 
-    // -- Методы цвета/десериализации:
+    // -- Методы для цензуры (мат-фильтр) --
 
     /**
-     * Превращает & / &#RRGGBB в §-цвет, если hex-colors включено.
+     * Проходит по списку запрещённых слов и частично замещает их
+     * (херня -> х***я).
      */
+    private String censorMessage(String msg) {
+        boolean censorEnabled = plugin.getConfiguration().getBoolean("censor.enabled", true);
+        if (!censorEnabled) {
+            return msg;
+        }
+
+        List<String> banWords = plugin.getConfiguration().getStringList("censor.words");
+        if (banWords.isEmpty()) {
+            return msg;
+        }
+
+        for (String ban : banWords) {
+            if (ban.isEmpty()) continue;
+
+            // Без учёта регистра
+            String regex = "(?i)" + Pattern.quote(ban);
+            Pattern p = Pattern.compile(regex);
+            Matcher m = p.matcher(msg);
+
+            while (m.find()) {
+                String found = m.group();
+                // маскируем
+                String masked = maskWord(found);
+                // заменяем только первое вхождение за проход
+                // потом обновляем matcher
+                msg = m.replaceFirst(Matcher.quoteReplacement(masked));
+                m = p.matcher(msg);
+            }
+        }
+
+        return msg;
+    }
+
+    /**
+     * maskWord: превращает "херня" -> "х***я"
+     *            (первая, последняя буква, а середина - '*').
+     */
+    private String maskWord(String word) {
+        if (word.length() <= 2) {
+            // Если слово короткое, можно полностью заменить на "**"
+            return word.replaceAll(".", "*");
+        }
+        // херня -> х + *** + я
+        StringBuilder sb = new StringBuilder();
+        sb.append(word.charAt(0));
+        for (int i = 1; i < word.length() - 1; i++) {
+            sb.append("*");
+        }
+        sb.append(word.charAt(word.length() - 1));
+        return sb.toString();
+    }
+
+    // -- Методы цвета/десериализации:
+
     private String applyColor(String text) {
         if (plugin.getConfiguration().getBoolean("hex-colors", true)) {
             text = Utils.applyHexColors(text);
@@ -281,9 +336,6 @@ public class ChatListener implements Listener {
         return org.bukkit.ChatColor.translateAlternateColorCodes('&', text);
     }
 
-    /**
-     * Десериализуем строку (уже с §-цветами) в Adventure-компонент (LegacySection).
-     */
     private Component deserializeColored(String text) {
         return LegacyComponentSerializer.legacySection().deserialize(text);
     }
